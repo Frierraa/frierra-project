@@ -1,21 +1,13 @@
-import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
 import { PrismaClient } from "@prisma/client";
+import { PrismaPg } from "@prisma/adapter-pg";
+import { Pool } from "pg";
 import { fetchYandexEdaMenu } from "../src/lib/yandexEda";
 
-const adapter = new PrismaBetterSqlite3({
-  url: process.env.DATABASE_URL || "file:./dev.db",
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
 });
-const prisma = new PrismaClient({
-  adapter,
-});
-
-function toSlug(input: string): string {
-  return input
-    .toLowerCase()
-    .replace(/ё/g, "е")
-    .replace(/[^a-z0-9а-я]+/gi, "-")
-    .replace(/^-+|-+$/g, "");
-}
+const adapter = new PrismaPg(pool);
+const prisma = new PrismaClient({ adapter, log: ["error"] });
 
 async function main() {
   const { categories, products } = await fetchYandexEdaMenu();

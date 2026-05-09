@@ -72,7 +72,7 @@ export async function destroySession(): Promise<void> {
   await prisma.authSession.deleteMany({ where: { tokenHash } });
 }
 
-export type CurrentUser = { id: string; phone: string | null; name: string | null; role: "USER" | "ADMIN" };
+export type CurrentUser = { id: string; phone: string | null; name: string | null; role: "USER" | "ADMIN" | "MANAGER" };
 
 export async function getCurrentUser(): Promise<CurrentUser | null> {
   const cookieStore = await cookies();
