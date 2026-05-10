@@ -1,9 +1,9 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import type { Product } from "@/lib/types";
+import { CatalogProductImage } from "@/components/CatalogProductImage";
 import { formatRub } from "@/lib/format";
 import { useCart } from "@/lib/cart";
 
@@ -20,7 +20,7 @@ export function ProductCard({ product, href }: { product: Product; href: string 
     <div className="group overflow-hidden rounded-2xl border border-black/10 bg-white shadow-sm transition hover:shadow-md">
       <Link href={href} className="block">
         <div className="relative aspect-[4/3] w-full overflow-hidden bg-zinc-100">
-          <Image
+          <CatalogProductImage
             alt={product.title}
             src={product.imageUrl || "/placeholder.svg"}
             fill

@@ -134,38 +134,45 @@ export async function POST(req: NextRequest) {
   }
 
   const origin = req.nextUrl.origin;
-  const returnUrl = `${origin}/orders`;
+  const configuredReturnUrl = (process.env.YOOKASSA_RETURN_URL || "").trim();
+  const returnUrl = configuredReturnUrl || `${origin}/orders`;
 
-  const { payment, confirmationUrl } = await yookassaCreatePayment({
-    amountRub: created.totalRub,
-    returnUrl,
-    description: `Заказ #${created.number}`,
-    metadata: { orderId: created.id, orderNumber: String(created.number) },
-  });
-
-  await prisma.payment.upsert({
-    where: { orderId: created.id },
-    create: {
-      orderId: created.id,
-      provider: "YOOKASSA",
-      status: "PENDING",
-      externalPaymentId: String(payment.id),
+  try {
+    const { payment, confirmationUrl } = await yookassaCreatePayment({
       amountRub: created.totalRub,
-      payloadJson: JSON.stringify(payment),
-    },
-    update: {
-      provider: "YOOKASSA",
-      status: "PENDING",
-      externalPaymentId: String(payment.id),
-      amountRub: created.totalRub,
-      payloadJson: JSON.stringify(payment),
-    },
-  });
+      returnUrl,
+      description: `Заказ #${created.number}`,
+      metadata: { orderId: created.id, orderNumber: String(created.number) },
+    });
 
-  return Response.json({
-    ok: true,
-    order: { id: created.id, number: created.number },
-    payment: { provider: "YOOKASSA", externalPaymentId: String(payment.id), confirmationUrl },
-  });
+    await prisma.payment.upsert({
+      where: { orderId: created.id },
+      create: {
+        orderId: created.id,
+        provider: "YOOKASSA",
+        status: "PENDING",
+        externalPaymentId: String(payment.id),
+        amountRub: created.totalRub,
+        payloadJson: JSON.stringify(payment),
+      },
+      update: {
+        provider: "YOOKASSA",
+        status: "PENDING",
+        externalPaymentId: String(payment.id),
+        amountRub: created.totalRub,
+        payloadJson: JSON.stringify(payment),
+      },
+    });
+
+    return Response.json({
+      ok: true,
+      order: { id: created.id, number: created.number },
+      payment: { provider: "YOOKASSA", externalPaymentId: String(payment.id), confirmationUrl },
+    });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "YOOKASSA_UNKNOWN";
+    await prisma.order.delete({ where: { id: created.id } }).catch(() => {});
+    return Response.json({ ok: false, error: msg }, { status: 502 });
+  }
 }
 

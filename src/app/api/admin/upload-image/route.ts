@@ -2,6 +2,7 @@ import { randomUUID } from "crypto";
 import { mkdir, writeFile } from "fs/promises";
 import { join } from "path";
 import { NextRequest } from "next/server";
+import { put } from "@vercel/blob";
 import { requireAdminRole } from "@/lib/adminAuth";
 
 export const runtime = "nodejs";
@@ -22,10 +23,20 @@ export async function POST(req: NextRequest) {
   const bytes = Buffer.from(arrayBuffer);
   const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
   const name = `${Date.now()}-${randomUUID()}.${ext || "jpg"}`;
+
+  const token = process.env.BLOB_READ_WRITE_TOKEN?.trim();
+  if (token) {
+    const blob = await put(name, bytes, {
+      access: "public",
+      token,
+      addRandomSuffix: true,
+    });
+    return Response.json({ ok: true, url: blob.url });
+  }
+
   const dir = join(process.cwd(), "public", "uploads");
   await mkdir(dir, { recursive: true });
   await writeFile(join(dir, name), bytes);
 
   return Response.json({ ok: true, url: `/uploads/${name}` });
 }
-

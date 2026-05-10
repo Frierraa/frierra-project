@@ -1,8 +1,8 @@
 "use client";
 
-import Image from "next/image";
 import { useMemo, useState } from "react";
 import type { Product } from "@/lib/types";
+import { CatalogProductImage } from "@/components/CatalogProductImage";
 import { formatRub } from "@/lib/format";
 import { useCart } from "@/lib/cart";
 
@@ -18,7 +18,7 @@ export function ProductView({ product }: { product: Product }) {
   return (
     <div className="grid gap-6 md:grid-cols-2">
       <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl bg-zinc-100">
-        <Image
+        <CatalogProductImage
           alt={product.title}
           src={product.imageUrl || "/placeholder.svg"}
           fill

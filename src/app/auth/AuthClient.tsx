@@ -76,7 +76,7 @@ export function AuthClient() {
       <div>
         <h1 className="text-2xl font-extrabold tracking-tight text-zinc-900">Вход по телефону</h1>
         <p className="mt-1 text-sm text-zinc-600">
-          Код придёт в Telegram-бот (в дипломном варианте). После входа откроется история заказов.
+          Код придёт в Telegram-бот. После входа откроется история заказов.
         </p>
       </div>
 

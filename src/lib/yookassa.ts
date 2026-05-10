@@ -20,23 +20,40 @@ function authHeader({ shopId, secretKey }: YooKassaCredentials): string {
 }
 
 export type YooKassaCreatePaymentArgs = {
+  /** Сумма в рублях (как `Order.totalRub` в БД). */
   amountRub: number;
   returnUrl: string;
   description: string;
   metadata: Record<string, string>;
 };
 
+/** Фрагмент ответа API ЮKassa (достаточно для сохранения и редиректа). */
+export type YooKassaPaymentJson = {
+  id?: string;
+  status?: string;
+  description?: string;
+  code?: string;
+  type?: string;
+  parameter?: string;
+  confirmation?: { confirmation_url?: string };
+} & Record<string, unknown>;
+
 export type YooKassaCreatePaymentResult = {
-  payment: any;
+  payment: YooKassaPaymentJson;
   confirmationUrl: string;
 };
+
+function parsePaymentJson(raw: unknown): YooKassaPaymentJson | null {
+  if (raw === null || typeof raw !== "object" || Array.isArray(raw)) return null;
+  return raw as YooKassaPaymentJson;
+}
 
 export async function yookassaCreatePayment(args: YooKassaCreatePaymentArgs): Promise<YooKassaCreatePaymentResult> {
   const creds = getYooKassaCredentials();
   const idempotenceKey = crypto.randomUUID();
 
   const payload = {
-    amount: { value: (Math.max(0, args.amountRub) / 100).toFixed(2), currency: "RUB" },
+    amount: { value: Math.max(0, Math.floor(args.amountRub)).toFixed(2), currency: "RUB" },
     capture: true,
     confirmation: { type: "redirect", return_url: args.returnUrl },
     description: args.description,
@@ -52,17 +69,20 @@ export async function yookassaCreatePayment(args: YooKassaCreatePaymentArgs): Pr
     },
     body: JSON.stringify(payload),
   });
-  const data = (await res.json().catch(() => null)) as any;
+  const data = parsePaymentJson(await res.json().catch(() => null));
   if (!res.ok || !data?.id) {
-    const err = typeof data?.description === "string" ? data.description : "YOOKASSA_CREATE_FAILED";
+    const details = [data?.type, data?.code, data?.parameter, data?.description]
+      .filter((x) => typeof x === "string" && x.trim().length > 0)
+      .join(" | ");
+    const err = details || `YOOKASSA_CREATE_FAILED_${res.status}`;
     throw new Error(err);
   }
-  const confirmationUrl = data?.confirmation?.confirmation_url;
-  if (!confirmationUrl) throw new Error("YOOKASSA_NO_CONFIRMATION_URL");
+  const confirmationUrl = data.confirmation?.confirmation_url;
+  if (!confirmationUrl || typeof confirmationUrl !== "string") throw new Error("YOOKASSA_NO_CONFIRMATION_URL");
   return { payment: data, confirmationUrl };
 }
 
-export async function yookassaGetPayment(externalPaymentId: string): Promise<any> {
+export async function yookassaGetPayment(externalPaymentId: string): Promise<YooKassaPaymentJson> {
   const creds = getYooKassaCredentials();
   const id = String(externalPaymentId || "").trim();
   if (!id) throw new Error("INVALID_PAYMENT_ID");
@@ -72,7 +92,7 @@ export async function yookassaGetPayment(externalPaymentId: string): Promise<any
     headers: { authorization: authHeader(creds) },
     cache: "no-store",
   });
-  const data = (await res.json().catch(() => null)) as any;
+  const data = parsePaymentJson(await res.json().catch(() => null));
   if (!res.ok || !data?.id) throw new Error("YOOKASSA_GET_FAILED");
   return data;
 }
