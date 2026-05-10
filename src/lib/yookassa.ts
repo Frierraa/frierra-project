@@ -11,6 +11,13 @@ function getYooKassaCredentials(): YooKassaCredentials {
   if (!shopId || !secretKey) {
     throw new Error("YOOKASSA_NOT_CONFIGURED");
   }
+  if (!/^\d+$/.test(shopId)) {
+    throw new Error("YOOKASSA_INVALID_SHOP_ID");
+  }
+  // Частая проблема: в env вставляют маску вида `test_*abc`, а не полный секрет.
+  if (secretKey.includes("*")) {
+    throw new Error("YOOKASSA_SECRET_KEY_MASKED");
+  }
   return { shopId, secretKey };
 }
 
@@ -63,7 +70,8 @@ export async function yookassaCreatePayment(args: YooKassaCreatePaymentArgs): Pr
   const res = await fetch("https://api.yookassa.ru/v3/payments", {
     method: "POST",
     headers: {
-      authorization: authHeader(creds),
+      Authorization: authHeader(creds),
+      Accept: "application/json",
       "content-type": "application/json",
       "Idempotence-Key": idempotenceKey,
     },
@@ -89,7 +97,7 @@ export async function yookassaGetPayment(externalPaymentId: string): Promise<Yoo
 
   const res = await fetch(`https://api.yookassa.ru/v3/payments/${encodeURIComponent(id)}`, {
     method: "GET",
-    headers: { authorization: authHeader(creds) },
+    headers: { Authorization: authHeader(creds), Accept: "application/json" },
     cache: "no-store",
   });
   const data = parsePaymentJson(await res.json().catch(() => null));
