@@ -14,10 +14,6 @@ function getYooKassaCredentials(): YooKassaCredentials {
   if (!/^\d+$/.test(shopId)) {
     throw new Error("YOOKASSA_INVALID_SHOP_ID");
   }
-  // Частая проблема: в env вставляют маску вида `test_*abc`, а не полный секрет.
-  if (secretKey.includes("*")) {
-    throw new Error("YOOKASSA_SECRET_KEY_MASKED");
-  }
   return { shopId, secretKey };
 }
 
