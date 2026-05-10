@@ -17,6 +17,13 @@ async function ensureStaff() {
 export async function GET(req: NextRequest) {
   const deny = await ensureStaff();
   if (deny) return deny;
+  await prisma.order.updateMany({
+    where: {
+      status: { in: ["NEW", "COOKING", "DELIVERING"] },
+      payment: { is: { status: "SUCCEEDED" } },
+    },
+    data: { status: "PAID" },
+  });
   const date = req.nextUrl.searchParams.get("date")?.trim() || "";
   const dayStart = date ? new Date(`${date}T00:00:00`) : null;
   const dayEnd = dayStart ? new Date(dayStart.getTime() + 24 * 60 * 60 * 1000) : null;
@@ -33,7 +40,7 @@ export async function GET(req: NextRequest) {
         : undefined,
     orderBy: { createdAt: "desc" },
     take: 500,
-    include: { items: true, user: { select: { id: true, email: true, name: true } } },
+    include: { items: true, payment: true, user: { select: { id: true, email: true, name: true } } },
   });
   return Response.json({ ok: true, orders });
 }
@@ -52,6 +59,15 @@ export async function PATCH(req: NextRequest) {
     return Response.json({ ok: false, error: "INVALID_STATUS" }, { status: 400 });
   }
   await prisma.order.update({ where: { id }, data: { status } });
+  return Response.json({ ok: true });
+}
+
+export async function DELETE(req: NextRequest) {
+  const deny = await ensureStaff();
+  if (deny) return deny;
+  const id = String(req.nextUrl.searchParams.get("id") || "").trim();
+  if (!id) return Response.json({ ok: false, error: "INVALID_INPUT" }, { status: 400 });
+  await prisma.order.delete({ where: { id } });
   return Response.json({ ok: true });
 }
 

@@ -1,7 +1,11 @@
 import Link from "next/link";
-import { categories, shop } from "@/lib/products";
+import { fetchCatalogFromDb } from "@/lib/catalog-db";
+import { shop } from "@/lib/products";
+import { connection } from "next/server";
 
-export default function Home() {
+export default async function Home() {
+  await connection();
+  const { categories } = await fetchCatalogFromDb();
   return (
     <div className="grid gap-10">
       <section className="relative overflow-hidden rounded-3xl border border-black/10 bg-white p-8 shadow-sm">

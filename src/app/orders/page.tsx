@@ -17,11 +17,19 @@ const statusTitle: Record<string, string> = {
 export default async function OrdersPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/auth?redirect=/orders");
+  await prisma.order.updateMany({
+    where: {
+      userId: user.id,
+      status: { in: ["NEW", "COOKING", "DELIVERING"] },
+      payment: { is: { status: "SUCCEEDED" } },
+    },
+    data: { status: "PAID" },
+  });
 
   const orders = await prisma.order.findMany({
     where: { userId: user.id },
     orderBy: { createdAt: "desc" },
-    include: { items: true },
+    include: { items: true, payment: true },
     take: 50,
   });
 
@@ -53,7 +61,24 @@ export default async function OrdersPage() {
                   <span className="text-sm font-semibold text-zinc-600">{formatRub(o.totalRub)}</span>
                 </div>
                 <div className="mt-2 text-sm text-zinc-600">
-                  Создан: <span className="font-bold text-zinc-900">{o.createdAt.toLocaleString("ru-RU")}</span>
+                  Создан:{" "}
+                  <span className="font-bold text-zinc-900">
+                    {new Intl.DateTimeFormat("ru-RU", {
+                      dateStyle: "short",
+                      timeStyle: "short",
+                      timeZone: "Europe/Moscow",
+                    }).format(o.createdAt)}
+                  </span>
+                </div>
+                <div className="mt-2 grid gap-1 text-sm text-zinc-700">
+                  <div>Телефон: {o.customerPhone}</div>
+                  <div>Доставка: {o.deliveryType === "DELIVERY" ? "Курьер" : "Самовывоз"}</div>
+                  {o.deliveryAddress ? <div>Адрес: {o.deliveryAddress}</div> : null}
+                  {o.comment ? <div>Комментарий: {o.comment}</div> : null}
+                  {o.payment ? <div>Оплата: {o.payment.status}</div> : null}
+                  <div className="font-semibold text-zinc-900">
+                    Состав: {o.items.map((x) => `${x.titleSnapshot} (${x.variantSnapshot}) x${x.qty}`).join(", ")}
+                  </div>
                 </div>
               </div>
             ))}
@@ -69,7 +94,13 @@ export default async function OrdersPage() {
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-w-0">
                   <div className="text-base font-extrabold text-zinc-900">Заказ №{o.number}</div>
-                  <div className="mt-1 text-sm font-semibold text-zinc-600">{o.createdAt.toLocaleString("ru-RU")}</div>
+                  <div className="mt-1 text-sm font-semibold text-zinc-600">
+                    {new Intl.DateTimeFormat("ru-RU", {
+                      dateStyle: "short",
+                      timeStyle: "short",
+                      timeZone: "Europe/Moscow",
+                    }).format(o.createdAt)}
+                  </div>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="rounded-full bg-black/5 px-3 py-1 text-xs font-extrabold text-zinc-900">
@@ -81,6 +112,16 @@ export default async function OrdersPage() {
                   <span className="rounded-full bg-black/5 px-3 py-1 text-xs font-extrabold text-zinc-900">
                     {formatRub(o.totalRub)}
                   </span>
+                </div>
+              </div>
+              <div className="mt-2 grid gap-1 text-sm text-zinc-700">
+                <div>Телефон: {o.customerPhone}</div>
+                <div>Доставка: {o.deliveryType === "DELIVERY" ? "Курьер" : "Самовывоз"}</div>
+                {o.deliveryAddress ? <div>Адрес: {o.deliveryAddress}</div> : null}
+                {o.comment ? <div>Комментарий: {o.comment}</div> : null}
+                {o.payment ? <div>Оплата: {o.payment.status}</div> : null}
+                <div className="font-semibold text-zinc-900">
+                  Состав: {o.items.map((x) => `${x.titleSnapshot} (${x.variantSnapshot}) x${x.qty}`).join(", ")}
                 </div>
               </div>
             </div>

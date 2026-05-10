@@ -27,7 +27,7 @@ export async function GET() {
   if (deny) return deny;
   const products = await prisma.product.findMany({
     orderBy: [{ createdAt: "desc" }],
-    include: { category: { select: { title: true } }, variants: { select: { id: true, title: true, priceRub: true } } },
+    include: { category: { select: { id: true, title: true } }, variants: { select: { id: true, title: true, priceRub: true } } },
   });
   return Response.json({ ok: true, products });
 }

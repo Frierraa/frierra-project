@@ -133,6 +133,8 @@ function AdminTabBody({
   const [form, setForm] = useState<Record<string, string>>({});
   const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [openedOrders, setOpenedOrders] = useState<Record<string, boolean>>({});
   const [categories, setCategories] = useState<Array<{ id: string; title: string }>>([]);
   const [products, setProducts] = useState<Array<{ id: string; title: string }>>([]);
   const [comboSelections, setComboSelections] = useState<Record<string, string>>({});
@@ -203,9 +205,10 @@ function AdminTabBody({
     setError(null);
     if (tab === "users") {
       const res = await fetch("/api/admin/users", {
-        method: "POST",
+        method: editingId ? "PATCH" : "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
+          ...(editingId ? { id: editingId } : {}),
           email: form.email || "",
           name: form.name || "",
           role: (form.role as any) || "MANAGER",
@@ -216,9 +219,13 @@ function AdminTabBody({
       if (!res.ok || !data?.ok) throw new Error(data?.error || "SAVE_FAILED");
     } else if (tab === "categories") {
       const res = await fetch("/api/admin/categories", {
-        method: "POST",
+        method: editingId ? "PATCH" : "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ title: form.title || "", slug: form.slug || "", sortOrder: Number(form.sortOrder || "0") }),
+        body: JSON.stringify({
+          ...(editingId ? { id: editingId } : {}),
+          title: form.title || "",
+          sortOrder: Number(form.sortOrder || "0"),
+        }),
       });
       const data = (await res.json().catch(() => null)) as any;
       if (!res.ok || !data?.ok) throw new Error(data?.error || "SAVE_FAILED");
@@ -234,15 +241,14 @@ function AdminTabBody({
         imageUrl = upData.url;
       }
       const res = await fetch("/api/admin/products", {
-        method: "POST",
+        method: editingId ? "PATCH" : "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
+          ...(editingId ? { id: editingId } : {}),
           title: form.title || "",
-          slug: form.slug || "",
           description: form.description || "",
           categoryId: form.categoryId || "",
-          priceRub: Number(form.priceRub || "0"),
-          weightGram: Number(form.weightGram || "0"),
+          ...(editingId ? {} : { priceRub: Number(form.priceRub || "0"), weightGram: Number(form.weightGram || "0") }),
           imageUrl,
         }),
       });
@@ -263,11 +269,11 @@ function AdminTabBody({
         .filter(([, qty]) => Number(qty) > 0)
         .map(([productId, qty]) => ({ productId, qty: Math.max(1, Number(qty) || 1) }));
       const res = await fetch("/api/admin/variants", {
-        method: "POST",
+        method: editingId ? "PATCH" : "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
+          ...(editingId ? { id: editingId } : {}),
           comboProductTitle: form.comboProductTitle || "",
-          comboProductSlug: form.comboProductSlug || "",
           comboProductDescription: form.comboProductDescription || "",
           comboProductCategoryId: form.comboProductCategoryId || "",
           comboProductImageUrl,
@@ -284,6 +290,7 @@ function AdminTabBody({
       setForm({});
       setFile(null);
       setComboSelections({});
+      setEditingId(null);
       await onChanged();
     } catch {
       setError("Не удалось обновить список после сохранения");
@@ -326,29 +333,63 @@ function AdminTabBody({
                   Заказ #{o.number} — {o.customerName} — {o.totalRub} руб.
                   {o?.createdAt ? (
                     <span className="ml-2 text-xs font-semibold text-zinc-600">
-                      {new Date(o.createdAt).toLocaleString("ru-RU", { dateStyle: "short", timeStyle: "short" })}
+                      {new Intl.DateTimeFormat("ru-RU", {
+                        dateStyle: "short",
+                        timeStyle: "short",
+                        timeZone: "Europe/Moscow",
+                      }).format(new Date(o.createdAt))}
                     </span>
                   ) : null}
                 </div>
-                <select
-                  value={o.status}
-                  onChange={async (e) => {
-                    await fetch("/api/admin/orders", {
-                      method: "PATCH",
-                      headers: { "content-type": "application/json" },
-                      body: JSON.stringify({ id: o.id, status: e.target.value }),
-                    });
-                    await onChanged();
-                  }}
-                  className="h-10 rounded-xl border border-black/10 bg-white px-3 text-sm font-semibold text-zinc-900"
-                >
-                  <option value="NEW">Новый</option>
-                  <option value="PAID">Оплачен</option>
-                  <option value="COOKING">Принят в работу</option>
-                  <option value="DELIVERING">В доставке</option>
-                  <option value="DONE">Доставлен</option>
-                </select>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setOpenedOrders((prev) => ({ ...prev, [o.id]: !prev[o.id] }))}
+                    className="inline-flex h-10 items-center justify-center rounded-xl border border-black/10 bg-white px-3 text-xs font-extrabold text-zinc-900 hover:bg-zinc-100"
+                  >
+                    {openedOrders[o.id] ? "Скрыть детали" : "Детали"}
+                  </button>
+                  <select
+                    value={o.status}
+                    onChange={async (e) => {
+                      await fetch("/api/admin/orders", {
+                        method: "PATCH",
+                        headers: { "content-type": "application/json" },
+                        body: JSON.stringify({ id: o.id, status: e.target.value }),
+                      });
+                      await onChanged();
+                    }}
+                    className="h-10 rounded-xl border border-black/10 bg-white px-3 text-sm font-semibold text-zinc-900"
+                  >
+                    <option value="NEW">Новый</option>
+                    <option value="PAID">Оплачен</option>
+                    <option value="COOKING">Принят в работу</option>
+                    <option value="DELIVERING">В доставке</option>
+                    <option value="DONE">Доставлен</option>
+                    <option value="CANCELLED">Отменён</option>
+                  </select>
+                  <button
+                    onClick={async () => {
+                      await fetch(`/api/admin/orders?id=${encodeURIComponent(String(o.id))}`, { method: "DELETE" });
+                      await onChanged();
+                    }}
+                    className="inline-flex h-10 items-center justify-center rounded-xl border border-red-200 bg-red-50 px-3 text-xs font-extrabold text-red-700 hover:bg-red-100"
+                  >
+                    Удалить
+                  </button>
+                </div>
               </div>
+              {openedOrders[o.id] ? (
+                <div className="mt-3 grid gap-1 text-sm text-zinc-700">
+                  <div>Телефон: {o.customerPhone}</div>
+                  <div>Доставка: {o.deliveryType === "DELIVERY" ? "Курьер" : "Самовывоз"}</div>
+                  {o.deliveryAddress ? <div>Адрес: {o.deliveryAddress}</div> : null}
+                  {o.comment ? <div>Комментарий: {o.comment}</div> : null}
+                  {o.payment ? <div>Оплата: {o.payment.status}</div> : null}
+                  <div className="font-semibold text-zinc-900">
+                    Состав: {(o.items || []).map((x: any) => `${x.titleSnapshot} (${x.variantSnapshot}) x${x.qty}`).join(", ")}
+                  </div>
+                </div>
+              ) : null}
             </div>
           ))}
         </div>
@@ -398,14 +439,12 @@ function AdminTabBody({
               {tab === "categories" ? (
                 <>
                   <Input label="Название" value={form.title || ""} onChange={(v) => setForm((s) => ({ ...s, title: v }))} />
-                  <Input label="Slug (необязательно)" value={form.slug || ""} onChange={(v) => setForm((s) => ({ ...s, slug: v }))} />
                   <Input label="Порядок" value={form.sortOrder || "0"} onChange={(v) => setForm((s) => ({ ...s, sortOrder: v }))} />
                 </>
               ) : null}
               {tab === "products" ? (
                 <>
                   <Input label="Название" value={form.title || ""} onChange={(v) => setForm((s) => ({ ...s, title: v }))} />
-                  <Input label="Slug (необязательно)" value={form.slug || ""} onChange={(v) => setForm((s) => ({ ...s, slug: v }))} />
                   <label className="grid gap-1">
                     <span className="text-xs font-bold text-zinc-600">Категория</span>
                     <select
@@ -434,7 +473,6 @@ function AdminTabBody({
               {tab === "variants" ? (
                 <>
                   <Input label="Название комбо" value={form.comboProductTitle || ""} onChange={(v) => setForm((s) => ({ ...s, comboProductTitle: v }))} />
-                  <Input label="Slug комбо (необязательно)" value={form.comboProductSlug || ""} onChange={(v) => setForm((s) => ({ ...s, comboProductSlug: v }))} />
                   <label className="grid gap-1">
                     <span className="text-xs font-bold text-zinc-600">Категория комбо</span>
                     <select
@@ -535,8 +573,22 @@ function AdminTabBody({
               }}
               className="mt-3 inline-flex h-10 items-center justify-center rounded-xl bg-black px-4 text-sm font-extrabold text-white hover:bg-black/90"
             >
-              Добавить
+              {editingId ? "Сохранить изменения" : "Добавить"}
             </button>
+            {editingId ? (
+              <button
+                onClick={() => {
+                  setEditingId(null);
+                  setForm({});
+                  setFile(null);
+                  setComboSelections({});
+                  setError(null);
+                }}
+                className="ml-2 mt-3 inline-flex h-10 items-center justify-center rounded-xl border border-black/10 bg-white px-4 text-sm font-extrabold text-zinc-900 hover:bg-zinc-100"
+              >
+                Отменить редактирование
+              </button>
+            ) : null}
             {error ? <div className="mt-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-bold text-red-800">{error}</div> : null}
           </div>
 
@@ -583,6 +635,44 @@ function AdminTabBody({
                       {row.isActive ? "Остановить продажи" : "Возобновить продажи"}
                     </button>
                   ) : null}
+                  <button
+                    onClick={() => {
+                      setEditingId(String(row.id));
+                      if (tab === "categories") {
+                        setForm({
+                          title: String(row.title || ""),
+                          sortOrder: String(row.sortOrder ?? 0),
+                        });
+                      } else if (tab === "products") {
+                        setForm({
+                          title: String(row.title || ""),
+                          description: String(row.description || ""),
+                          categoryId: String(row.category?.id || ""),
+                          imageUrl: String(row.imageUrl || ""),
+                          priceRub: String(row.variants?.[0]?.priceRub ?? ""),
+                          weightGram: "",
+                        });
+                      } else if (tab === "variants") {
+                        setForm({
+                          title: String(row.title || ""),
+                          priceRub: String(row.priceRub ?? ""),
+                          sku: String(row.sku || ""),
+                        });
+                        const nextCombo: Record<string, string> = {};
+                        for (const item of row.comboItems || []) nextCombo[String(item.productId)] = String(item.qty || 1);
+                        setComboSelections(nextCombo);
+                      } else if (tab === "users") {
+                        setForm({
+                          email: String(row.email || ""),
+                          name: String(row.name || ""),
+                          role: String(row.role || "MANAGER"),
+                        });
+                      }
+                    }}
+                    className="inline-flex h-9 items-center justify-center rounded-xl border border-black/10 bg-white px-3 text-xs font-extrabold text-zinc-900 hover:bg-zinc-100"
+                  >
+                    Редактировать
+                  </button>
                   <button
                     onClick={async () => {
                       const endpoint =
