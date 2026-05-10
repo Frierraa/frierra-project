@@ -88,7 +88,7 @@ export default async function OrdersPage() {
 
       {pastOrders.length ? (
         <div className="grid gap-3">
-          <div className="text-sm font-extrabold text-zinc-900">Прошлые заказы</div>
+          <div className="text-sm font-extrabold text-white">Прошлые заказы</div>
           {pastOrders.map((o) => (
             <div key={o.id} className="rounded-3xl border border-black/10 bg-white p-5 shadow-sm">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">

@@ -17,7 +17,7 @@ export function ProductCard({ product, href }: { product: Product; href: string 
   );
 
   return (
-    <div className="group overflow-hidden rounded-2xl border border-black/10 bg-white shadow-sm transition hover:shadow-md">
+    <div className="group flex h-full flex-col overflow-hidden rounded-2xl border border-black/10 bg-white shadow-sm transition hover:shadow-md">
       <Link href={href} className="block">
         <div className="relative aspect-[4/3] w-full overflow-hidden bg-zinc-100">
           <CatalogProductImage
@@ -31,9 +31,9 @@ export function ProductCard({ product, href }: { product: Product; href: string 
         </div>
       </Link>
 
-      <div className="p-4">
-        <div className="flex flex-wrap items-center gap-2">
-          <h3 className="text-base font-extrabold tracking-tight text-zinc-900">{product.title}</h3>
+      <div className="flex h-full flex-col p-4">
+        <div className="flex min-h-[3.25rem] flex-wrap content-start items-start gap-2">
+          <h3 className="line-clamp-2 text-base font-extrabold tracking-tight text-zinc-900">{product.title}</h3>
           {(product.badges ?? []).map((b) => (
             <span
               key={b}
@@ -46,9 +46,9 @@ export function ProductCard({ product, href }: { product: Product; href: string 
             </span>
           ))}
         </div>
-        <p className="mt-1 line-clamp-2 text-sm text-zinc-600">{product.description}</p>
+        <p className="mt-1 min-h-[2.5rem] line-clamp-2 text-sm text-zinc-600">{product.description || "\u00A0"}</p>
 
-        <div className="mt-3 flex items-center justify-between gap-3">
+        <div className="mt-auto flex items-center justify-between gap-3">
           <div className="min-w-0">
             <div className="text-sm font-bold text-zinc-900">{formatRub(selected?.priceRub ?? 0)}</div>
             <div className="text-xs text-zinc-500">{selected?.title}</div>

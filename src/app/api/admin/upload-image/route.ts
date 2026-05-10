@@ -1,11 +1,20 @@
 import { randomUUID } from "crypto";
-import { mkdir, writeFile } from "fs/promises";
-import { join } from "path";
 import { NextRequest } from "next/server";
 import { put } from "@vercel/blob";
 import { requireAdminRole } from "@/lib/adminAuth";
 
 export const runtime = "nodejs";
+
+function toSafeMimeType(file: File): string {
+  const type = file.type?.trim().toLowerCase();
+  if (type.startsWith("image/")) return type;
+  const ext = (file.name.split(".").pop() || "jpeg").toLowerCase().replace(/[^a-z0-9]/g, "");
+  if (ext === "png") return "image/png";
+  if (ext === "webp") return "image/webp";
+  if (ext === "gif") return "image/gif";
+  if (ext === "svg") return "image/svg+xml";
+  return "image/jpeg";
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -34,9 +43,7 @@ export async function POST(req: NextRequest) {
     return Response.json({ ok: true, url: blob.url });
   }
 
-  const dir = join(process.cwd(), "public", "uploads");
-  await mkdir(dir, { recursive: true });
-  await writeFile(join(dir, name), bytes);
-
-  return Response.json({ ok: true, url: `/uploads/${name}` });
+  // На Vercel без Blob-токена файловая система эфемерная; возвращаем data URL как надёжный fallback.
+  const dataUrl = `data:${toSafeMimeType(file)};base64,${bytes.toString("base64")}`;
+  return Response.json({ ok: true, url: dataUrl });
 }

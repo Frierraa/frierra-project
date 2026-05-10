@@ -40,7 +40,8 @@ export function CatalogProductImage(props: Props) {
   }, [failed, props.src]);
 
   const isRemoteHttp = /^https?:\/\//i.test(raw);
-  if (isRemoteHttp) {
+  const isDataImage = /^data:image\//i.test(raw);
+  if (isRemoteHttp || isDataImage) {
     const imgClass = fill ? `absolute inset-0 h-full w-full ${className}` : className;
     return (
       // eslint-disable-next-line @next/next/no-img-element
