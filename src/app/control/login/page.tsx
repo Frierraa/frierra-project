@@ -12,8 +12,7 @@ export default function AdminLoginPage() {
 
   return (
     <div className="mx-auto max-w-md rounded-3xl border border-black/10 bg-white p-6 shadow-sm">
-      <h1 className="text-2xl font-extrabold tracking-tight text-zinc-900">Вход в админку</h1>
-      <p className="mt-1 text-sm text-zinc-600">Роут админки: /control</p>
+      <h1 className="text-2xl font-extrabold tracking-tight text-zinc-900">Вход в административную панель</h1>
       <div className="mt-6 grid gap-3">
         <label className="grid gap-2">
           <span className="text-sm font-extrabold text-zinc-900">Логин</span>

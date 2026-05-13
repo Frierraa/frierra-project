@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
 import { formatRuPhonePlus7, isValidRuLocal10, normalizeRuLocal10 } from "@/lib/phone";
@@ -73,9 +72,9 @@ export function AuthClient() {
 
   return (
     <div className="mx-auto grid w-full max-w-lg gap-6">
-      <div>
-        <h1 className="text-2xl font-extrabold tracking-tight text-zinc-900">Вход по телефону</h1>
-        <p className="mt-1 text-sm text-zinc-600">
+      <div className="rounded-2xl bg-zinc-900 px-5 py-4">
+        <h1 className="text-2xl font-extrabold tracking-tight text-white">Вход по телефону</h1>
+        <p className="mt-1 text-sm text-zinc-300">
           Код придёт в Telegram-бот. После входа откроется история заказов.
         </p>
       </div>
@@ -190,16 +189,7 @@ export function AuthClient() {
             ) : null}
           </div>
 
-          <div className="text-xs font-semibold text-zinc-600">
-            Нет Telegram? Для проверки можно попросить преподавателя/админа посмотреть код в чате бота.
-          </div>
         </div>
-      </div>
-
-      <div className="text-sm text-zinc-600">
-        <Link className="font-extrabold text-zinc-900 underline" href="/menu">
-          Вернуться в меню
-        </Link>
       </div>
     </div>
   );

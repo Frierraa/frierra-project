@@ -131,7 +131,6 @@ function AdminTabBody({
   setUsersSearch: (value: string) => void;
 }) {
   const [form, setForm] = useState<Record<string, string>>({});
-  const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [openedOrders, setOpenedOrders] = useState<Record<string, boolean>>({});
@@ -143,8 +142,6 @@ function AdminTabBody({
   function humanizeError(raw: string): string {
     if (raw === "INVALID_INPUT") return "Проверьте обязательные поля: название, категория, цена.";
     if (raw === "COMBO_ITEMS_REQUIRED") return "Добавьте хотя бы одну позицию в комбо.";
-    if (raw === "FILE_REQUIRED") return "Выберите файл изображения.";
-    if (raw === "IMAGE_UPLOAD_FAILED") return "Не удалось загрузить изображение. Повторите попытку.";
     if (raw === "ADMIN_UNAUTHORIZED") return "Сессия истекла. Войдите заново.";
     if (raw === "ADMIN_FORBIDDEN") return "Недостаточно прав для выполнения операции.";
     return raw || "Не удалось сохранить изменения.";
@@ -231,15 +228,7 @@ function AdminTabBody({
       if (!res.ok || !data?.ok) throw new Error(data?.error || "SAVE_FAILED");
     } else if (tab === "products") {
       if (!form.categoryId) throw new Error("INVALID_INPUT");
-      let imageUrl = form.imageUrl || "";
-      if (file) {
-        const fd = new FormData();
-        fd.set("file", file);
-        const upRes = await fetch("/api/admin/upload-image", { method: "POST", body: fd });
-        const upData = (await upRes.json().catch(() => null)) as any;
-        if (!upRes.ok || !upData?.ok || !upData?.url) throw new Error(upData?.error || "IMAGE_UPLOAD_FAILED");
-        imageUrl = upData.url;
-      }
+      const imageUrl = form.imageUrl || "";
       const res = await fetch("/api/admin/products", {
         method: editingId ? "PATCH" : "POST",
         headers: { "content-type": "application/json" },
@@ -256,15 +245,7 @@ function AdminTabBody({
       if (!res.ok || !data?.ok) throw new Error(data?.error || "SAVE_FAILED");
     } else if (tab === "variants") {
       if (!form.comboProductCategoryId) throw new Error("INVALID_INPUT");
-      let comboProductImageUrl = form.comboProductImageUrl || "";
-      if (file) {
-        const fd = new FormData();
-        fd.set("file", file);
-        const upRes = await fetch("/api/admin/upload-image", { method: "POST", body: fd });
-        const upData = (await upRes.json().catch(() => null)) as any;
-        if (!upRes.ok || !upData?.ok || !upData?.url) throw new Error(upData?.error || "IMAGE_UPLOAD_FAILED");
-        comboProductImageUrl = upData.url;
-      }
+      const comboProductImageUrl = form.comboProductImageUrl || "";
       const comboItems = Object.entries(comboSelections)
         .filter(([, qty]) => Number(qty) > 0)
         .map(([productId, qty]) => ({ productId, qty: Math.max(1, Number(qty) || 1) }));
@@ -279,7 +260,6 @@ function AdminTabBody({
           comboProductImageUrl,
           title: form.title || "",
           priceRub: Number(form.priceRub || "0"),
-          sku: form.sku || "",
           comboItems,
         }),
       });
@@ -288,7 +268,6 @@ function AdminTabBody({
     }
     try {
       setForm({});
-      setFile(null);
       setComboSelections({});
       setEditingId(null);
       await onChanged();
@@ -463,11 +442,7 @@ function AdminTabBody({
                   <Input label="Цена (руб)" value={form.priceRub || ""} onChange={(v) => setForm((s) => ({ ...s, priceRub: v }))} />
                   <Input label="Граммовка (г)" value={form.weightGram || ""} onChange={(v) => setForm((s) => ({ ...s, weightGram: v }))} />
                   <Input label="Описание" value={form.description || ""} onChange={(v) => setForm((s) => ({ ...s, description: v }))} />
-                  <Input label="URL картинки (или файл ниже)" value={form.imageUrl || ""} onChange={(v) => setForm((s) => ({ ...s, imageUrl: v }))} />
-                  <label className="grid gap-1">
-                    <span className="text-xs font-bold text-zinc-600">Файл картинки</span>
-                    <input type="file" accept="image/*" onChange={(e) => setFile(e.target.files?.[0] || null)} />
-                  </label>
+                  <Input label="URL картинки" value={form.imageUrl || ""} onChange={(v) => setForm((s) => ({ ...s, imageUrl: v }))} />
                 </>
               ) : null}
               {tab === "variants" ? (
@@ -494,17 +469,12 @@ function AdminTabBody({
                     onChange={(v) => setForm((s) => ({ ...s, comboProductDescription: v }))}
                   />
                   <Input
-                    label="URL картинки комбо (или файл ниже)"
+                    label="URL картинки комбо"
                     value={form.comboProductImageUrl || ""}
                     onChange={(v) => setForm((s) => ({ ...s, comboProductImageUrl: v }))}
                   />
-                  <label className="grid gap-1">
-                    <span className="text-xs font-bold text-zinc-600">Файл картинки комбо</span>
-                    <input type="file" accept="image/*" onChange={(e) => setFile(e.target.files?.[0] || null)} />
-                  </label>
                   <Input label="Название вариации" value={form.title || ""} onChange={(v) => setForm((s) => ({ ...s, title: v }))} />
                   <Input label="Цена (руб)" value={form.priceRub || ""} onChange={(v) => setForm((s) => ({ ...s, priceRub: v }))} />
-                  <Input label="SKU (необязательно)" value={form.sku || ""} onChange={(v) => setForm((s) => ({ ...s, sku: v }))} />
                   <div className="sm:col-span-2 grid gap-2">
                     <span className="text-xs font-bold text-zinc-600">Позиции в комбо (выберите из списка)</span>
                     <input
@@ -518,10 +488,12 @@ function AdminTabBody({
                         <div className="grid gap-2">
                           {products.filter((p) => p.title.toLowerCase().includes(comboSearch.trim().toLowerCase())).map((p) => {
                             const checked = Object.prototype.hasOwnProperty.call(comboSelections, p.id);
+                            const comboCbId = `combo-item-${p.id}`;
                             return (
-                              <label key={p.id} className="flex items-center justify-between gap-3 rounded-lg border border-black/10 px-3 py-2">
-                                <span className="flex min-w-0 items-center gap-2">
+                              <div key={p.id} className="flex items-center justify-between gap-3 rounded-lg border border-black/10 px-3 py-2">
+                                <div className="flex min-w-0 flex-1 items-center gap-2">
                                   <input
+                                    id={comboCbId}
                                     type="checkbox"
                                     checked={checked}
                                     onChange={(e) => {
@@ -534,8 +506,10 @@ function AdminTabBody({
                                       });
                                     }}
                                   />
-                                  <span className="truncate text-sm font-semibold text-zinc-900">{p.title}</span>
-                                </span>
+                                  <label htmlFor={comboCbId} className="min-w-0 flex-1 cursor-pointer truncate text-sm font-semibold text-zinc-900">
+                                    {p.title}
+                                  </label>
+                                </div>
                                 <input
                                   type="number"
                                   min={1}
@@ -548,10 +522,10 @@ function AdminTabBody({
                                       [p.id]: e.target.value || "1",
                                     }))
                                   }
-                                  className="h-9 w-24 rounded-lg border border-black/10 bg-white px-2 text-sm font-semibold text-zinc-900 disabled:opacity-40"
+                                  className="h-9 w-24 shrink-0 rounded-lg border border-black/10 bg-white px-2 text-sm font-semibold text-zinc-900 disabled:opacity-40"
                                   placeholder="Кол-во"
                                 />
-                              </label>
+                              </div>
                             );
                           })}
                         </div>
@@ -580,7 +554,6 @@ function AdminTabBody({
                 onClick={() => {
                   setEditingId(null);
                   setForm({});
-                  setFile(null);
                   setComboSelections({});
                   setError(null);
                 }}
@@ -656,7 +629,6 @@ function AdminTabBody({
                         setForm({
                           title: String(row.title || ""),
                           priceRub: String(row.priceRub ?? ""),
-                          sku: String(row.sku || ""),
                         });
                         const nextCombo: Record<string, string> = {};
                         for (const item of row.comboItems || []) nextCombo[String(item.productId)] = String(item.qty || 1);
